@@ -1,5 +1,7 @@
 package com.polidea.rxandroidble2.internal.connection;
 
+import android.util.Log;
+
 import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_INDICATE;
 import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_NOTIFY;
 import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_READ;
@@ -56,6 +58,7 @@ import io.reactivex.functions.Function;
 
 @ConnectionScope
 public class RxBleConnectionImpl implements RxBleConnection {
+    private static final String TAG = "RxBleConnectionImpl";
 
     private final ConnectionOperationQueue operationQueue;
     final RxBleGattCallback gattCallback;
@@ -98,6 +101,7 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public LongWriteOperationBuilder createNewLongWriteBuilder() {
+        Log.d(TAG, "Creating new long write builder");
         return longWriteOperationBuilderProvider.get();
     }
 
@@ -127,6 +131,7 @@ public class RxBleConnectionImpl implements RxBleConnection {
     @Override
     @RequiresApi(21 /* Build.VERSION_CODES.LOLLIPOP */)
     public Single<Integer> requestMtu(int mtu) {
+        Log.d(TAG, "Requesting MTU: " + mtu);
         return operationQueue.queue(operationsProvider.provideMtuChangeOperation(mtu)).firstOrError();
     }
 
@@ -138,6 +143,7 @@ public class RxBleConnectionImpl implements RxBleConnection {
     @Override
     @RequiresApi(26 /* Build.VERSION_CODES.O */)
     public Single<PhyPair> readPhy() {
+        Log.d(TAG, "Reading PHY");
         return operationQueue.queue(operationsProvider.providePhyReadOperation()).firstOrError();
     }
 
@@ -152,11 +158,13 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public Single<RxBleDeviceServices> discoverServices() {
+        Log.d(TAG, "Discovering services with default timeout");
         return serviceDiscoveryManager.getDiscoverServicesSingle(20L, TimeUnit.SECONDS);
     }
 
     @Override
     public Single<RxBleDeviceServices> discoverServices(long timeout, @NonNull TimeUnit timeUnit) {
+        Log.d(TAG, "Discovering services with timeout: " + timeout + " " + timeUnit);
         return serviceDiscoveryManager.getDiscoverServicesSingle(timeout, timeUnit);
     }
 
@@ -174,11 +182,13 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public Observable<Observable<byte[]>> setupNotification(@NonNull UUID characteristicUuid) {
+        Log.d(TAG, "Setting up notification for characteristic: " + characteristicUuid);
         return setupNotification(characteristicUuid, NotificationSetupMode.DEFAULT);
     }
 
     @Override
     public Observable<Observable<byte[]>> setupNotification(@NonNull BluetoothGattCharacteristic characteristic) {
+        Log.d(TAG, "Setting up notification for characteristic: " + characteristic.getUuid());
         return setupNotification(characteristic, NotificationSetupMode.DEFAULT);
     }
 
@@ -203,11 +213,13 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public Observable<Observable<byte[]>> setupIndication(@NonNull UUID characteristicUuid) {
+        Log.d(TAG, "Setting up indication for characteristic: " + characteristicUuid);
         return setupIndication(characteristicUuid, NotificationSetupMode.DEFAULT);
     }
 
     @Override
     public Observable<Observable<byte[]>> setupIndication(@NonNull BluetoothGattCharacteristic characteristic) {
+        Log.d(TAG, "Setting up indication for characteristic: " + characteristic.getUuid());
         return setupIndication(characteristic, NotificationSetupMode.DEFAULT);
     }
 
@@ -232,6 +244,7 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public Single<byte[]> readCharacteristic(@NonNull UUID characteristicUuid) {
+        Log.d(TAG, "Reading characteristic: " + characteristicUuid);
         return getCharacteristic(characteristicUuid)
                 .flatMap(new Function<BluetoothGattCharacteristic, SingleSource<? extends byte[]>>() {
                     @Override
@@ -243,6 +256,7 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public Single<byte[]> readCharacteristic(@NonNull BluetoothGattCharacteristic characteristic) {
+        Log.d(TAG, "Reading characteristic: " + characteristic.getUuid());
         return illegalOperationChecker.checkAnyPropertyMatches(characteristic, PROPERTY_READ)
                 .andThen(operationQueue.queue(operationsProvider.provideReadCharacteristic(characteristic)))
                 .firstOrError();
@@ -250,6 +264,7 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public Single<byte[]> writeCharacteristic(@NonNull UUID characteristicUuid, @NonNull final byte[] data) {
+        Log.d(TAG, "Writing to characteristic: " + characteristicUuid + ", data length: " + data.length);
         return getCharacteristic(characteristicUuid)
                 .flatMap(new Function<BluetoothGattCharacteristic, SingleSource<? extends byte[]>>() {
                     @Override
@@ -261,16 +276,25 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public Single<byte[]> writeCharacteristic(@NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] data) {
+        Log.d(TAG, "Writing to characteristic: " + characteristic.getUuid() + ", data length: " + data.length);
         return illegalOperationChecker.checkAnyPropertyMatches(
-                characteristic,
-                PROPERTY_WRITE | PROPERTY_WRITE_NO_RESPONSE | PROPERTY_SIGNED_WRITE
-        ).andThen(operationQueue.queue(operationsProvider.provideWriteCharacteristic(characteristic, data)))
+                        characteristic,
+                        PROPERTY_WRITE | PROPERTY_WRITE_NO_RESPONSE | PROPERTY_SIGNED_WRITE
+                ).andThen(operationQueue.queue(operationsProvider.provideWriteCharacteristic(characteristic, data)))
                 .firstOrError();
     }
 
     @Override
     public Single<byte[]> readDescriptor(@NonNull final UUID serviceUuid, @NonNull final UUID characteristicUuid,
                                          @NonNull final UUID descriptorUuid) {
+        Log.d(TAG, "Reading descriptor - service: "
+                + serviceUuid
+                + ", characteristic: "
+                + characteristicUuid
+                + ", descriptor: "
+                + descriptorUuid
+        );
+
         return discoverServices()
                 .flatMap(new Function<RxBleDeviceServices, SingleSource<BluetoothGattDescriptor>>() {
                     @Override
@@ -288,6 +312,11 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public Single<byte[]> readDescriptor(@NonNull BluetoothGattDescriptor descriptor) {
+        Log.d(TAG, "Reading descriptor: "
+                + descriptor.getUuid()
+                + " from characteristic: "
+                + descriptor.getCharacteristic().getUuid()
+        );
         return operationQueue
                 .queue(operationsProvider.provideReadDescriptor(descriptor))
                 .firstOrError()
@@ -304,6 +333,15 @@ public class RxBleConnectionImpl implements RxBleConnection {
             @NonNull final UUID serviceUuid, @NonNull final UUID characteristicUuid, @NonNull final UUID descriptorUuid,
             @NonNull final byte[] data
     ) {
+        Log.d(TAG, "Writing descriptor - service: "
+                + serviceUuid
+                + ", characteristic: "
+                + characteristicUuid
+                + ", descriptor: "
+                + descriptorUuid
+                + ", data length: "
+                + data.length
+        );
         return discoverServices()
                 .flatMap(new Function<RxBleDeviceServices, SingleSource<BluetoothGattDescriptor>>() {
                     @Override
@@ -321,11 +359,19 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public Completable writeDescriptor(@NonNull BluetoothGattDescriptor bluetoothGattDescriptor, @NonNull byte[] data) {
+        Log.d(TAG, "Writing descriptor: "
+                + bluetoothGattDescriptor.getUuid()
+                + " from characteristic: "
+                + bluetoothGattDescriptor.getCharacteristic().getUuid()
+                + ", data length: "
+                + data.length
+        );
         return descriptorWriter.writeDescriptor(bluetoothGattDescriptor, data);
     }
 
     @Override
     public Single<Integer> readRssi() {
+        Log.d(TAG, "Reading RSSI");
         return operationQueue.queue(operationsProvider.provideRssiReadOperation()).firstOrError();
     }
 
@@ -336,11 +382,13 @@ public class RxBleConnectionImpl implements RxBleConnection {
 
     @Override
     public <T> Observable<T> queue(@NonNull final RxBleCustomOperation<T> operation) {
+        Log.d(TAG, "Queuing custom operation with normal priority");
         return queue(operation, Priority.NORMAL);
     }
 
     @Override
     public <T> Observable<T> queue(@NonNull final RxBleCustomOperation<T> operation, @NonNull final Priority priority) {
+        Log.d(TAG, "Queuing custom operation with priority: " + priority);
         return operationQueue.queue(new QueueOperation<T>() {
             @Override
             @SuppressWarnings("ConstantConditions")
